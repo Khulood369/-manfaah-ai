@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>منفعة AI — تحليل جدول المنافع وإدارة المطالبات التأمينية</title>
+<style>
+  :root {
+    --primary: #0a8f5f;
+    --primary-dark: #066c47;
+    --primary-light: #e6f7ef;
+    --accent: #1e6fb3;
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --text: #1a2332;
+    --muted: #6b7a8f;
+    --border: #e2e8f0;
+    --danger: #d9534f;
+    --warning: #f0a500;
+    --success: #2cb67d;
+    --shadow: 0 2px 12px rgba(15, 30, 60, 0.06);
+    --shadow-lg: 0 8px 32px rgba(15, 30, 60, 0.12);
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Tahoma", "Cairo", "Amiri", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    padding: 18px 32px;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .logo-icon {
+    width: 42px;
+    height: 42px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+  nav.tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  nav.tabs button {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  nav.tabs button:hover { background: rgba(255,255,255,0.28); }
+  nav.tabs button.active {
+    background: white;
+    color: var(--primary-dark);
+  }
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  h2 {
+    color: var(--primary-dark);
+    margin-bottom: 8px;
+    font-size: 26px;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 22px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .grid {
+    display: grid;
+    gap: 18px;
+  }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .stat {
+    background: linear-gradient(135deg, var(--card), #fafcff);
+    border-right: 4px solid var(--primary);
+    padding: 18px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .stat .label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .stat .value { font-size: 26px; font-weight: 700; color: var(--primary-dark); }
+  .stat.accent { border-color: var(--accent); }
+  .stat.accent .value { color: var(--accent); }
+  .stat.warning { border-color: var(--warning); }
+  .stat.warning .value { color: var(--warning); }
+  .stat.danger { border-color: var(--danger); }
+  .stat.danger .value { color: var(--danger); }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fcfdff;
+    transition: border 0.2s, box-shadow 0.2s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(10, 143, 95, 0.15);
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  button.btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 11px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background 0.2s, transform 0.1s;
+  }
+  button.btn:hover { background: var(--primary-dark); }
+  button.btn:active { transform: scale(0.98); }
+  button.btn.secondary { background: var(--accent); }
+  button.btn.secondary:hover { background: #155a93; }
+  button.btn.danger { background: var(--danger); }
+  button.btn.danger:hover { background: #b03a37; }
+  button.btn.ghost {
+    background: transparent;
+    color: var(--primary-dark);
+    border: 1px solid var(--primary);
+  }
+  button.btn.ghost:hover { background: var(--primary-light); }
+  button.btn.small { padding: 6px 12px; font-size: 12px; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: var(--card);
+  }
+  table th {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    padding: 12px;
+    text-align: right;
+    font-weight: 700;
+    border-bottom: 2px solid var(--primary);
+    white-space: nowrap;
+  }
+  table td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+  }
+  table tbody tr:hover { background: #f9fbfd; }
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.success { background: #d4f5e6; color: #066c47; }
+  .badge.pending { background: #fff3d6; color: #8a6300; }
+  .badge.rejected { background: #fcdada; color: #8a2825; }
+  .badge.review { background: #d6e7fa; color: #155a93; }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    border-radius: 6px;
+    font-size: 12px;
+    margin: 2px;
+  }
+  .alert {
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    border-right: 4px solid;
+    font-size: 14px;
+  }
+  .alert.info { background: #e7f1fc; border-color: var(--accent); color: #144a7a; }
+  .alert.success { background: #def5e8; border-color: var(--success); color: #0d6c45; }
+  .alert.warning { background: #fff3d6; border-color: var(--warning); color: #8a6300; }
+  .alert.danger { background: #fcdada; border-color: var(--danger); color: #8a2825; }
+  .ai-result {
+    background: linear-gradient(135deg, var(--primary-light), #f0fff8);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 14px;
+    border: 1px solid #c4e8d6;
+  }
+  .ai-result h3 {
+    color: var(--primary-dark);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-result ul { padding-right: 18px; }
+  .ai-result li { margin-bottom: 6px; }
+  .progress-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--success), var(--primary));
+    transition: width 0.4s;
+  }
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 50px; margin-bottom: 10px; opacity: 0.5; }
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .filter-bar input, .filter-bar select {
+    width: auto;
+    flex: 1;
+    min-width: 160px;
+  }
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 30, 60, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+  }
+  .modal h3 { color: var(--primary-dark); margin-bottom: 16px; }
+  .close-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--muted);
+    float: left;
+  }
+  footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+    margin-top: 30px;
+  }
+  .chart-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    height: 200px;
+    padding: 20px 10px 10px;
+    border-bottom: 2px solid var(--border);
+    margin-top: 12px;
+  }
+  .chart-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .chart-fill {
+    width: 100%;
+    background: linear-gradient(180deg, var(--primary), var(--primary-dark));
+    border-radius: 6px 6px 0 0;
+    min-height: 4px;
+    transition: height 0.5s;
+    position: relative;
+  }
+  .chart-fill::before {
+    content: attr(data-val);
+    position: absolute;
+    top: -22px;
+    right: 50%;
+    transform: translateX(50%);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary-dark);
+    white-space: nowrap;
+  }
+  .chart-label { font-size: 12px; color: var(--muted); text-align: center; }
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fafcff;
+  }
+  .upload-area:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+  .upload-area.drag { border-color: var(--primary); background: var(--primary-light); }
+  @media (max-width: 768px) {
+    header { padding: 14px 16px; }
+    main { padding: 16px; }
+    .logo { font-size: 18px; }
+    nav.tabs button { padding: 8px 12px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">🩺</div>
+      <div>
+        <div>منفعة AI</div>
+        <div style="font-size:12px;font-weight:400;opacity:0.9">منصة ذكية لتحليل المنافع وإدارة المطالبات</div>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button data-tab="dashboard" class="active">📊 لوحة التحكم</button>
+      <button data-tab="benefits">📋 جدول المنافع</button>
+      <button data-tab="claims">🧾 المطالبات</button>
+      <button data-tab="analyzer">🤖 محلل AI</button>
+      <button data-tab="reports">📈 التقارير</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- Dashboard -->
+  <section id="dashboard" class="section active">
+    <h2>لوحة التحكم</h2>
+    <p class="subtitle">نظرة عامة على الأداء التأميني والمطالبات</p>
+
+    <div class="grid grid-4">
+      <div class="stat">
+        <div class="label">إجمالي المطالبات</div>
+        <div class="value" id="stat-total">0</div>
+      </div>
+      <div class="stat accent">
+        <div class="label">قيد المراجعة</div>
+        <div class="value" id="stat-review">0</div>
+      </div>
+      <div class="stat warning">
+        <div class="label">معلّقة</div>
+        <div class="value" id="stat-pending">0</div>
+      </div>
+      <div class="stat danger">
+        <div class="label">مرفوضة</div>
+        <div class="value" id="stat-rejected">0</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:20px;">
+      <div class="card">
+        <h3 style="color:var(--primary-dark);margin-bottom:14px;">المطالبات حسب الحالة</h3>
+        <div class="chart-bar" id="status-chart"></div>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--primary-dark);margin-bottom:14px;">ملخص مالي</h3>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <span>إجمالي قيمة المطالبات</span>
+          <strong id="total-amount">0 ر.س</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <span>المعتمد</span>
+          <strong style="color:var(--success)" id="approved-amount">0 ر.س</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <span>المرفوض</span>
+          <strong style="color:var(--danger)" id="rejected-amount">0 ر.س</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;">
+          <span>نسبة الاعتماد</span>
+          <strong id="approval-rate">0%</strong>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="approval-progress" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">آخر المطالبات</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>الرقم</th>
+              <th>المريض</th>
+              <th>الخدمة</th>
+              <th>المبلغ</th>
+              <th>الحالة</th>
+              <th>التاريخ</th>
+            </tr>
+          </thead>
+          <tbody id="recent-claims"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Benefits Table -->
+  <section id="benefits" class="section">
+    <h2>جدول المنافع</h2>
+    <p class="subtitle">إدارة المنافع التأمينية المغطاة والاستثناءات والحدود السنوية</p>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">إضافة منفعة جديدة</h3>
+      <div class="form-row">
+        <div>
+          <label>اسم المنفعة</label>
+          <input id="benefit-name" placeholder="مثال: الكشف الطبي العام" />
+        </div>
+        <div>
+          <label>الفئة</label>
+          <select id="benefit-category">
+            <option value="outpatient">عيادات خارجية</option>
+            <option value="inpatient">تنويم</option>
+            <option value="emergency">طوارئ</option>
+            <option value="dental">أسنان</option>
+            <option value="optical">بصريات</option>
+            <option value="maternity">ولادة</option>
+            <option value="pharmacy">صيدلية</option>
+            <option value="lab">مختبر وأشعة</option>
+          </select>
+        </div>
+        <div>
+          <label>نسبة التغطية %</label>
+          <input id="benefit-coverage" type="number" min="0" max="100" value="80" />
+        </div>
+        <div>
+          <label>الحد السنوي (ر.س)</label>
+          <input id="benefit-limit" type="number" min="0" value="10000" />
+        </div>
+        <div>
+          <label>التحمل (ر.س)</label>
+          <input id="benefit-copay" type="number" min="0" value="0" />
+        </div>
+        <div>
+          <label>يحتاج موافقة مسبقة؟</label>
+          <select id="benefit-preauth">
+            <option value="no">لا</option>
+            <option value="yes">نعم</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label>ملاحظات / استثناءات</label>
+        <textarea id="benefit-notes" placeholder="مثال: لا تشمل التجميل، تخضع لشروط فترة الانتظار..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="addBenefit()">+ إضافة المنفعة</button>
+        <button class="btn ghost" onclick="loadSampleBenefits()">تحميل بيانات نموذجية</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="filter-bar">
+        <input id="benefit-search" placeholder="🔍 ابحث عن منفعة..." oninput="renderBenefits()" />
+        <select id="benefit-filter-cat" onchange="renderBenefits()">
+          <option value="">جميع الفئات</option>
+          <option value="outpatient">عيادات خارجية</option>
+          <option value="inpatient">تنويم</option>
+          <option value="emergency">طوارئ</option>
+          <option value="dental">أسنان</option>
+          <option value="optical">بصريات</option>
+          <option value="maternity">ولادة</option>
+          <option value="pharmacy">صيدلية</option>
+          <option value="lab">مختبر وأشعة</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>المنفعة</th>
+              <th>الفئة</th>
+              <th>التغطية</th>
+              <th>الحد السنوي</th>
+              <th>التحمل</th>
+              <th>موافقة مسبقة</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="benefits-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Claims -->
+  <section id="claims" class="section">
+    <h2>إدارة المطالبات</h2>
+    <p class="subtitle">تسجيل ومتابعة المطالبات التأمينية مع تحقق ذكي من جدول المنافع</p>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">مطالبة جديدة</h3>
+      <div class="form-row">
+        <div>
+          <label>اسم المريض</label>
+          <input id="claim-patient" placeholder="الاسم الكامل" />
+        </div>
+        <div>
+          <label>رقم البوليصة</label>
+          <input id="claim-policy" placeholder="POL-2026-XXXX" />
+        </div>
+        <div>
+          <label>الخدمة المقدمة</label>
+          <input id="claim-service" placeholder="مثال: أشعة مقطعية للصدر" />
+        </div>
+        <div>
+          <label>الفئة المرتبطة</label>
+          <select id="claim-category">
+            <option value="outpatient">عيادات خارجية</option>
+            <option value="inpatient">تنويم</option>
+            <option value="emergency">طوارئ</option>
+            <option value="dental">أسنان</option>
+            <option value="optical">بصريات</option>
+            <option value="maternity">ولادة</option>
+            <option value="pharmacy">صيدلية</option>
+            <option value="lab">مختبر وأشعة</option>
+          </select>
+        </div>
+        <div>
+          <label>المبلغ المطلوب (ر.س)</label>
+          <input id="claim-amount" type="number" min="0" value="0" />
+        </div>
+        <div>
+          <label>المزود الطبي</label>
+          <input id="claim-provider" placeholder="مستشفى/مركز طبي" />
+        </div>
+      </div>
+      <div>
+        <label>تفاصيل / تشخيص</label>
+        <textarea id="claim-details" placeholder="وصف الحالة والإجراءات..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="addClaim()">+ تسجيل المطالبة وتحليلها</button>
+        <button class="btn ghost" onclick="loadSampleClaims()">تحميل أمثلة</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="filter-bar">
+        <input id="claim-search" placeholder="🔍 ابحث في المطالبات..." oninput="renderClaims()" />
+        <select id="claim-filter-status" onchange="renderClaims()">
+          <option value="">جميع الحالات</option>
+          <option value="approved">معتمدة</option>
+          <option value="review">قيد المراجعة</option>
+          <option value="pending">معلّقة</option>
+          <option value="rejected">مرفوضة</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>المريض</th>
+              <th>الخدمة</th>
+              <th>الفئة</th>
+              <th>المبلغ</th>
+              <th>المُغطى</th>
+              <th>الحالة</th>
+              <th>التاريخ</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="claims-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- AI Analyzer -->
+  <section id="analyzer" class="section">
+    <h2>🤖 محلل الذكاء الاصطناعي</h2>
+    <p class="subtitle">تحليل ذكي لجدول المنافع ومطابقة المطالبات وكشف الفجوات في التغطية</p>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3 style="color:var(--primary-dark);margin-bottom:10px;">🔎 فحص تغطية خدمة</h3>
+        <p class="subtitle">أدخل خدمة للتحقق من التغطية</p>
+        <div class="form-row">
+          <div>
+            <label>وصف الخدمة</label>
+            <input id="ai-service" placeholder="مثال: عملية استئصال اللوزتين" />
+          </div>
+          <div>
+            <label>المبلغ المتوقع</label>
+            <input id="ai-amount" type="number" value="5000" />
+          </div>
+          <div>
+            <label>الفئة</label>
+            <select id="ai-cat">
+              <option value="outpatient">عيادات خارجية</option>
+              <option value="inpatient">تنويم</option>
+              <option value="emergency">طوارئ</option>
+              <option value="dental">أسنان</option>
+              <option value="optical">بصريات</option>
+              <option value="maternity">ولادة</option>
+              <option value="pharmacy">صيدلية</option>
+              <option value="lab">مختبر وأشعة</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn" onclick="aiCheckCoverage()">تحليل التغطية</button>
+        <div id="ai-coverage-result"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="color:var(--primary-dark);margin-bottom:10px;">📊 تحليل جدول المنافع</h3>
+        <p class="subtitle">احصل على رؤى ذكية حول الجدول الحالي</p>
+        <button class="btn secondary" onclick="aiAnalyzeBenefits()">تحليل شامل للمنافع</button>
+        <div id="ai-benefits-result"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:10px;">🧠 المساعد الذكي</h3>
+      <p class="subtitle">اسأل عن أي شيء يتعلق بالمنافع والمطالبات</p>
+      <textarea id="ai-question" placeholder="مثال: ما هي أعلى ثلاث فئات إنفاقًا؟ أو: ما المطالبات المعلقة لأكثر من ٧ أيام؟"></textarea>
+      <div class="btn-row">
+        <button class="btn" onclick="aiAsk()">اسأل المساعد</button>
+        <button class="btn ghost" onclick="document.getElementById('ai-question').value='ما هي أعلى المطالبات قيمة؟'">مثال 1</button>
+        <button class="btn ghost" onclick="document.getElementById('ai-question').value='ما الفجوات في جدول المنافع؟'">مثال 2</button>
+        <button class="btn ghost" onclick="document.getElementById('ai-question').value='كم نسبة المطالبات المرفوضة؟'">مثال 3</button>
+      </div>
+      <div id="ai-answer"></div>
+    </div>
+  </section>
+
+  <!-- Reports -->
+  <section id="reports" class="section">
+    <h2>التقارير والتحليلات</h2>
+    <p class="subtitle">تقارير تفصيلية قابلة للتصدير</p>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <h3 style="color:var(--primary-dark);font-size:16px;margin-bottom:10px;">📥 تصدير المطالبات</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">تنزيل المطالبات بصيغة CSV</p>
+        <button class="btn" onclick="exportCSV('claims')">تصدير CSV</button>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--primary-dark);font-size:16px;margin-bottom:10px;">📥 تصدير المنافع</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">تنزيل جدول المنافع بصيغة CSV</p>
+        <button class="btn" onclick="exportCSV('benefits')">تصدير CSV</button>
+      </div>
+      <div class="card">
+        <h3 style="color:var(--primary-dark);font-size:16px;margin-bottom:10px;">🗑️ مسح البيانات</h3>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:14px;">حذف جميع البيانات المحلية</p>
+        <button class="btn danger" onclick="clearAll()">مسح الكل</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">توزيع المطالبات حسب الفئة</h3>
+      <div class="chart-bar" id="category-chart"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">أداء المنافع</h3>
+      <div id="benefit-performance"></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal()">×</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<footer>
+  © 2026 منفعة AI — منصة تعليمية لتحليل المنافع وإدارة المطالبات التأمينية
+</footer>
+
+<script>
+/* ============================================================
+   منفعة AI — Core JS
+   التخزين المحلي + المنطق + محرك تحليل بسيط
+   ============================================================ */
+
+const CATEGORIES = {
+  outpatient: "عيادات خارجية",
+  inpatient: "تنويم",
+  emergency: "طوارئ",
+  dental: "أسنان",
+  optical: "بصريات",
+  maternity: "ولادة",
+  pharmacy: "صيدلية",
+  lab: "مختبر وأشعة"
+};
+
+const STATUS_LABELS = {
+  approved: { label: "معتمدة", cls: "success" },
+  review: { label: "قيد المراجعة", cls: "review" },
+  pending: { label: "معلّقة", cls: "pending" },
+  rejected: { label: "مرفوضة", cls: "rejected" }
+};
+
+let state = {
+  benefits: JSON.parse(localStorage.getItem("manfaa_benefits") || "[]"),
+  claims: JSON.parse(localStorage.getItem("manfaa_claims") || "[]")
+};
+
+function save() {
+  localStorage.setItem("manfaa_benefits", JSON.stringify(state.benefits));
+  localStorage.setItem("manfaa_claims", JSON.stringify(state.claims));
+}
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll("nav.tabs button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+    if (btn.dataset.tab === "dashboard") renderDashboard();
+    if (btn.dataset.tab === "reports") renderReports();
+  });
+});
+
+/* ---------- Benefits ---------- */
+function addBenefit() {
+  const name = document.getElementById("benefit-name").value.trim();
+  if (!name) { alert("يرجى إدخال اسم المنفعة"); return; }
+  const b = {
+    id: Date.now(),
+    name,
+    category: document.getElementById("benefit-category").value,
+    coverage: +document.getElementById("benefit-coverage").value || 0,
+    limit: +document.getElementById("benefit-limit").value || 0,
+    copay: +document.getElementById("benefit-copay").value || 0,
+    preauth: document.getElementById("benefit-preauth").value === "yes",
+    notes: document.getElementById("benefit-notes").value.trim()
+  };
+  state.benefits.push(b);
+  save();
+  renderBenefits();
+  ["benefit-name","benefit-notes"].forEach(id => document.getElementById(id).value = "");
+  showToast("تمت إضافة المنفعة بنجاح ✓");
+}
+
+function deleteBenefit(id) {
+  if (!confirm("هل تريد حذف هذه المنفعة؟")) return;
+  state.benefits = state.benefits.filter(b => b.id !== id);
+  save();
+  renderBenefits();
+}
+
+function renderBenefits() {
+  const search = (document.getElementById("benefit-search")?.value || "").toLowerCase();
+  const cat = document.getElementById("benefit-filter-cat")?.value || "";
+  const tbody = document.getElementById("benefits-table");
+  const filtered = state.benefits.filter(b =>
+    (!search || b.name.toLowerCase().includes(search) || (b.notes||"").toLowerCase().includes(search)) &&
+    (!cat || b.category === cat)
+  );
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div>لا توجد منافع. أضف منفعة جديدة أو حمّل البيانات النموذجية.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(b => `
+    <tr>
+      <td><strong>${escapeHtml(b.name)}</strong>${b.notes ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;">${escapeHtml(b.notes)}</div>` : ""}</td>
+      <td><span class="pill">${CATEGORIES[b.category]}</span></td>
+      <td><strong>${b.coverage}%</strong></td>
+      <td>${formatMoney(b.limit)}</td>
+      <td>${formatMoney(b.copay)}</td>
+      <td>${b.preauth ? '<span class="badge pending">نعم</span>' : '<span class="badge success">لا</span>'}</td>
+      <td><button class="btn danger small" onclick="deleteBenefit(${b.id})">حذف</button></td>
+    </tr>
+  `).join("");
+}
+
+function loadSampleBenefits() {
+  const samples = [
+    { name: "الكشف الطبي العام", category: "outpatient", coverage: 80, limit: 5000, copay: 25, preauth: false, notes: "يشمل جميع التخصصات الأساسية" },
+    { name: "التحاليل المخبرية", category: "lab", coverage: 90, limit: 8000, copay: 0, preauth: false, notes: "" },
+    { name: "الأشعة التشخيصية", category: "lab", coverage: 85, limit: 15000, copay: 50, preauth: true, notes: "تتطلب موافقة للأشعة المقطعية والرنين" },
+    { name: "التنويم في المستشفى", category: "inpatient", coverage: 100, limit: 200000, copay: 0, preauth: true, notes: "غرفة خاصة - حد أقصى ١٤ يوم" },
+    { name: "العمليات الجراحية", category: "inpatient", coverage: 95, limit: 150000, copay: 0, preauth: true, notes: "لا يشمل التجميل" },
+    { name: "الطوارئ", category: "emergency", coverage: 100, limit: 50000, copay: 0, preauth: false, notes: "تغطية فورية على مدار الساعة" },
+    { name: "حشو الأسنان", category: "dental", coverage: 70, limit: 3000, copay: 100, preauth: false, notes: "" },
+    { name: "تنظيف الأسنان", category: "dental", coverage: 100, limit: 500, copay: 0, preauth: false, notes: "مرة كل ٦ أشهر" },
+    { name: "النظارات الطبية", category: "optical", coverage: 60, limit: 1500, copay: 0, preauth: false, notes: "مرة في السنة" },
+    { name: "متابعة الحمل والولادة", category: "maternity", coverage: 90, limit: 25000, copay: 0, preauth: true, notes: "فترة انتظار ١٠ أشهر" },
+    { name: "الأدوية المزمنة", category: "pharmacy", coverage: 85, limit: 12000, copay: 20, preauth: false, notes: "" },
+    { name: "العلاج الطبيعي", category: "outpatient", coverage: 75, limit: 4000, copay: 30, preauth: true, notes: "حد أقصى ٢٠ جلسة سنويًا" }
+  ];
+  samples.forEach((s, i) => state.benefits.push({ ...s, id: Date.now() + i }));
+  save();
+  renderBenefits();
+  showToast("تم تحميل ١٢ منفعة نموذجية ✓");
+}
+
+/* ---------- Claims ---------- */
+function addClaim() {
+  const patient = document.getElementById("claim-patient").value.trim();
+  const service = document.getElementById("claim-service").value.trim();
+  if (!patient || !service) { alert("يرجى إدخال اسم المريض والخدمة"); return; }
+  const amount = +document.getElementById("claim-amount").value || 0;
+  const category = document.getElementById("claim-category").value;
+  const analysis = analyzeClaim(category, service, amount);
+  const claim = {
+    id: Date.now(),
+    code: "CLM-" + String(state.claims.length + 1001).padStart(4, "0"),
+    patient,
+    policy: document.getElementById("claim-policy").value.trim() || "—",
+    service,
+    category,
+    amount,
+    provider: document.getElementById("claim-provider").value.trim() || "—",
+    details: document.getElementById("claim-details").value.trim(),
+    covered: analysis.covered,
+    status: analysis.status,
+    reason: analysis.reason,
+    date: new Date().toISOString().slice(0, 10)
+  };
+  state.claims.unshift(claim);
+  save();
+  renderClaims();
+  renderDashboard();
+  ["claim-patient","claim-policy","claim-service","claim-provider","claim-details"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("claim-amount").value = 0;
+  showClaimResult(claim);
+}
+
+function showClaimResult(c) {
+  const st = STATUS_LABELS[c.status];
+  const html = `
+    <div class="ai-result">
+      <h3>✓ تم تحليل المطالبة ${c.code}</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+        <div><strong>الحالة:</strong> <span class="badge ${st.cls}">${st.label}</span></div>
+        <div><strong>المبلغ المطلوب:</strong> ${formatMoney(c.amount)}</div>
+        <div><strong>المبلغ المغطى:</strong> ${formatMoney(c.covered)}</div>
+        <div><strong>تحمل المريض:</strong> ${formatMoney(c.amount - c.covered)}</div>
+      </div>
+      <div style="margin-top:14px;"><strong>السبب:</strong> ${c.reason}</div>
+    </div>`;
+  showModal(html);
+}
+
+function analyzeClaim(category, service, amount) {
+  const matches = state.benefits.filter(b => b.category === category);
+  if (!matches.length) {
+    return { covered: 0, status: "rejected", reason: `لا توجد منفعة مسجلة لفئة "${CATEGORIES[category]}" في جدول المنافع.` };
+  }
+  const txt = service.toLowerCase();
+  let best = matches.find(b => txt && b.name.toLowerCase().split(" ").some(w => w.length>2 && txt.includes(w))) || matches[0];
+  const grossCovered = Math.min(amount, best.limit) * (best.coverage / 100);
+  const covered = Math.max(0, grossCovered - best.copay);
+  let status = "approved";
+  let reason = `مغطاة وفق منفعة "${best.name}" بنسبة ${best.coverage}% (حد سنوي ${formatMoney(best.limit)}).`;
+  if (best.preauth) {
+    status = "review";
+    reason = `تتطلب هذه الخدمة موافقة مسبقة. تم إرسالها للمراجعة. ${reason}`;
+  }
+  if (amount > best.limit) {
+    status = status === "approved" ? "review" : status;
+    reason += ` ⚠ المبلغ المطلوب يتجاوز الحد السنوي للمنفعة.`;
+  }
+  if (covered <= 0) {
+    status = "rejected";
+    reason = `لا يوجد مبلغ مستحق بعد تطبيق التحمل والنسبة. ${reason}`;
+  }
+  return { covered: Math.round(covered), status, reason };
+}
+
+function updateClaimStatus(id, newStatus) {
+  const c = state.claims.find(x => x.id === id);
+  if (!c) return;
+  c.status = newStatus;
+  save();
+  renderClaims();
+  renderDashboard();
+}
+
+function deleteClaim(id) {
+  if (!confirm("حذف المطالبة؟")) return;
+  state.claims = state.claims.filter(c => c.id !== id);
+  save();
+  renderClaims();
+  renderDashboard();
+}
+
+function renderClaims() {
+  const search = (document.getElementById("claim-search")?.value || "").toLowerCase();
+  const status = document.getElementById("claim-filter-status")?.value || "";
+  const tbody = document.getElementById("claims-table");
+  const filtered = state.claims.filter(c =>
+    (!search || c.patient.toLowerCase().includes(search) || c.service.toLowerCase().includes(search) || c.code.toLowerCase().includes(search)) &&
+    (!status || c.status === status)
+  );
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="empty-icon">🧾</div>لا توجد مطالبات بعد.</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(c => {
+    const st = STATUS_LABELS[c.status];
+    return `
+    <tr>
+      <td><strong>${c.code}</strong></td>
+      <td>${escapeHtml(c.patient)}</td>
+      <td>${escapeHtml(c.service)}</td>
+      <td><span class="pill">${CATEGORIES[c.category]}</span></td>
+      <td>${formatMoney(c.amount)}</td>
+      <td><strong style="color:var(--success)">${formatMoney(c.covered)}</strong></td>
+      <td><span class="badge ${st.cls}">${st.label}</span></td>
+      <td>${c.date}</td>
+      <td>
+        <button class="btn small" onclick="showClaimDetails(${c.id})">عرض</button>
+        <button class="btn danger small" onclick="deleteClaim(${c.id})">حذف</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function showClaimDetails(id) {
+  const c = state.claims.find(x => x.id === id);
+  if (!c) return;
+  const st = STATUS_LABELS[c.status];
+  const html = `
+    <h3>تفاصيل المطالبة ${c.code}</h3>
+    <div style="display:grid;gap:8px;margin-top:12px;">
+      <div><strong>المريض:</strong> ${escapeHtml(c.patient)}</div>
+      <div><strong>رقم البوليصة:</strong> ${escapeHtml(c.policy)}</div>
+      <div><strong>الخدمة:</strong> ${escapeHtml(c.service)}</div>
+      <div><strong>الفئة:</strong> ${CATEGORIES[c.category]}</div>
+      <div><strong>المزود:</strong> ${escapeHtml(c.provider)}</div>
+      <div><strong>المبلغ المطلوب:</strong> ${formatMoney(c.amount)}</div>
+      <div><strong>المبلغ المغطى:</strong> ${formatMoney(c.covered)}</div>
+      <div><strong>الحالة:</strong> <span class="badge ${st.cls}">${st.label}</span></div>
+      <div><strong>السبب:</strong> ${escapeHtml(c.reason)}</div>
+      ${c.details ? `<div><strong>التفاصيل:</strong> ${escapeHtml(c.details)}</div>` : ""}
+      <div><strong>التاريخ:</strong> ${c.date}</div>
+    </div>
+    <div class="btn-row" style="margin-top:16px;">
+      <button class="btn" onclick="updateClaimStatus(${c.id},'approved');closeModal()">✓ اعتماد</button>
+      <button class="btn secondary" onclick="updateClaimStatus(${c.id},'review');closeModal()">🔍 مراجعة</button>
+      <button class="btn ghost" onclick="updateClaimStatus(${c.id},'pending');closeModal()">⏳ تعليق</button>
+      <button class="btn danger" onclick="updateClaimStatus(${c.id},'rejected');closeModal()">✗ رفض</button>
+    </div>`;
+  showModal(html);
+}
+
+function loadSampleClaims() {
+  if (!state.benefits.length) loadSampleBenefits();
+  const samples = [
+    { patient: "أحمد محمد العتيبي", service: "كشف باطنة", category: "outpatient", amount: 350, provider: "مستشفى السعودي الألماني" },
+    { patient: "نورة عبدالله القحطاني", service: "تحليل دم شامل", category: "lab", amount: 480, provider: "مختبر البرج" },
+    { patient: "فيصل سعد الدوسري", service: "أشعة مقطعية على البطن", category: "lab", amount: 2200, provider: "مستشفى المملكة" },
+    { patient: "سارة خالد الزهراني", service: "حشو سن", category: "dental", amount: 600, provider: "عيادة الابتسامة" },
+    { patient: "محمد علي الحربي", service: "عملية استئصال الزائدة", category: "inpatient", amount: 18500, provider: "مستشفى دله" },
+    { patient: "ريم سلطان", service: "نظارة طبية", category: "optical", amount: 1200, provider: "مغربي للبصريات" },
+    { patient: "خالد ناصر", service: "إسعاف وحوادث", category: "emergency", amount: 3500, provider: "طوارئ السعودي الألماني" },
+    { patient: "هند فهد", service: "متابعة حمل", category: "maternity", amount: 800, provider: "مستشفى السعودي الألماني" }
+  ];
+  samples.forEach((s, i) => {
+    const analysis = analyzeClaim(s.category, s.service, s.amount);
+    state.claims.unshift({
+      id: Date.now() + i,
+      code: "CLM-" + String(state.claims.length + 1001 + i).padStart(4, "0"),
+      ...s,
+      policy: "POL-2026-" + (1000 + i),
+      details: "",
+      ...analysis,
+      date: new Date(Date.now() - i*86400000).toISOString().slice(0,10)
+    });
+  });
+  save();
+  renderClaims();
+  renderDashboard();
+  showToast("تم تحميل ٨ مطالبات نموذجية ✓");
+}
+
+/* ---------- Dashboard ---------- */
+function renderDashboard() {
+  const total = state.claims.length;
+  const review = state.claims.filter(c => c.status === "review").length;
+  const pending = state.claims.filter(c => c.status === "pending").length;
+  const rejected = state.claims.filter(c => c.status === "rejected").length;
+  const approved = state.claims.filter(c => c.status === "approved").length;
+
+  document.getElementById("stat-total").textContent = total;
+  document.getElementById("stat-review").textContent = review;
+  document.getElementById("stat-pending").textContent = pending;
+  document.getElementById("stat-rejected").textContent = rejected;
+
+  const totalAmt = state.claims.reduce((s,c)=>s+c.amount,0);
+  const approvedAmt = state.claims.filter(c=>c.status==="approved").reduce((s,c)=>s+c.covered,0);
+  const rejectedAmt = state.claims.filter(c=>c.status==="rejected").reduce((s,c)=>s+c.amount,0);
+  document.getElementById("total-amount").textContent = formatMoney(totalAmt);
+  document.getElementById("approved-amount").textContent = formatMoney(approvedAmt);
+  document.getElementById("rejected-amount").textContent = formatMoney(rejectedAmt);
+  const rate = total ? Math.round((approved/total)*100) : 0;
+  document.getElementById("approval-rate").textContent = rate + "%";
+  document.getElementById("approval-progress").style.width = rate + "%";
+
+  // Status chart
+  const max = Math.max(approved, review, pending, rejected, 1);
+  document.getElementById("status-chart").innerHTML = [
+    ["معتمدة", approved],
+    ["مراجعة", review],
+    ["معلّقة", pending],
+    ["مرفوضة", rejected]
+  ].map(([l,v]) => `
+    <div class="chart-col">
+      <div class="chart-fill" data-val="${v}" style="height:${(v/max)*160}px;"></div>
+      <div class="chart-label">${l}</div>
+    </div>
+  `).join("");
+
+  // Recent claims
+  const recent = state.claims.slice(0, 5);
+  const tbody = document.getElementById("recent-claims");
+  if (!recent.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">📭</div>لا توجد مطالبات بعد.</div></td></tr>`;
+  } else {
+    tbody.innerHTML = recent.map(c => {
+      const st = STATUS_LABELS[c.status];
+      return `<tr>
+        <td><strong>${c.code}</strong></td>
+        <td>${escapeHtml(c.patient)}</td>
+        <td>${escapeHtml(c.service)}</td>
+        <td>${formatMoney(c.amount)}</td>
+        <td><span class="badge ${st.cls}">${st.label}</span></td>
+        <td>${c.date}</td>
+      </tr>`;
+    }).join("");
+  }
+}
+
+/* ---------- Reports ---------- */
+function renderReports() {
+  // Category distribution
+  const counts = {};
+  state.claims.forEach(c => counts[c.category] = (counts[c.category]||0)+1);
+  const entries = Object.entries(counts);
+  const max = Math.max(...entries.map(([_,v])=>v), 1);
+  document.getElementById("category-chart").innerHTML = entries.length ? entries.map(([k,v]) => `
+    <div class="chart-col">
+      <div class="chart-fill" data-val="${v}" style="height:${(v/max)*160}px;"></div>
+      <div class="chart-label">${CATEGORIES[k]}</div>
+    </div>
+  `).join("") : `<div class="empty" style="width:100%"><div class="empty-icon">📊</div>لا توجد بيانات</div>`;
+
+  // Benefit performance
+  const perf = state.benefits.map(b => {
+    const related = state.claims.filter(c => c.category === b.category);
+    const total = related.reduce((s,c)=>s+c.amount,0);
+    const used = total / b.limit * 100;
+    return { ...b, used: Math.min(100, Math.round(used)), total, count: related.length };
+  }).sort((a,b)=>b.used-a.used);
+
+  const wrap = document.getElementById("benefit-performance");
+  if (!perf.length) {
+    wrap.innerHTML = `<div class="empty"><div class="empty-icon">📈</div>أضف منافع لتظهر التحليلات</div>`;
+    return;
+  }
+  wrap.innerHTML = perf.slice(0,8).map(p => `
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <strong>${escapeHtml(p.name)}</strong>
+        <span>${p.count} مطالبة | ${formatMoney(p.total)} من ${formatMoney(p.limit)}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${p.used}%"></div></div>
+    </div>
+  `).join("");
+}
+
+/* ---------- AI Engine (rule-based) ---------- */
+function aiCheckCoverage() {
+  const service = document.getElementById("ai-service").value.trim();
+  const amount = +document.getElementById("ai-amount").value || 0;
+  const cat = document.getElementById("ai-cat").value;
+  if (!service) { alert("أدخل وصف الخدمة"); return; }
+  const a = analyzeClaim(cat, service, amount);
+  const st = STATUS_LABELS[a.status];
+  const out = document.getElementById("ai-coverage-result");
+  out.innerHTML = `
+    <div class="ai-result">
+      <h3>📋 نتيجة التحليل</h3>
+      <ul>
+        <li>الحالة المتوقعة: <span class="badge ${st.cls}">${st.label}</span></li>
+        <li>المبلغ المتوقع تغطيته: <strong style="color:var(--success)">${formatMoney(a.covered)}</strong> من أصل ${formatMoney(amount)}</li>
+        <li>تحمل المريض المتوقع: <strong>${formatMoney(amount - a.covered)}</strong></li>
+        <li>تفسير: ${a.reason}</li>
+      </ul>
+    </div>`;
+}
+
+function aiAnalyzeBenefits() {
+  const out = document.getElementById("ai-benefits-result");
+  if (!state.benefits.length) {
+    out.innerHTML = `<div class="alert warning">⚠ لا توجد منافع لتحليلها. أضف منافع أو حمّل النموذجية.</div>`;
+    return;
+  }
+  const cats = new Set(state.benefits.map(b=>b.category));
+  const allCats = Object.keys(CATEGORIES);
+  const missing = allCats.filter(c => !cats.has(c));
+  const lowCov = state.benefits.filter(b => b.coverage < 70);
+  const highCopay = state.benefits.filter(b => b.copay > 50);
+  const preauth = state.benefits.filter(b => b.preauth);
+  const avgCoverage = Math.round(state.benefits.reduce((s,b)=>s+b.coverage,0)/state.benefits.length);
+  const totalLimit = state.benefits.reduce((s,b)=>s+b.limit,0);
+
+  out.innerHTML = `
+    <div class="ai-result">
+      <h3>🧠 تحليل ذكي لجدول المنافع</h3>
+      <ul>
+        <li>عدد المنافع: <strong>${state.benefits.length}</strong> | عدد الفئات المغطاة: <strong>${cats.size}/${allCats.length}</strong></li>
+        <li>متوسط نسبة التغطية: <strong>${avgCoverage}%</strong></li>
+        <li>إجمالي الحدود السنوية: <strong>${formatMoney(totalLimit)}</strong></li>
+        <li>منافع تتطلب موافقة مسبقة: <strong>${preauth.length}</strong></li>
+        ${missing.length ? `<li>⚠ <strong>فجوات في التغطية:</strong> ${missing.map(c=>CATEGORIES[c]).join("، ")}</li>` : `<li>✓ جميع الفئات الأساسية مغطاة</li>`}
+        ${lowCov.length ? `<li>⚠ منافع بتغطية منخفضة (<70%): ${lowCov.map(b=>escapeHtml(b.name)).join("، ")}</li>` : ""}
+        ${highCopay.length ? `<li>💰 منافع بتحمل مرتفع: ${highCopay.map(b=>escapeHtml(b.name)).join("، ")}</li>` : ""}
+      </ul>
+    </div>`;
+}
+
+function aiAsk() {
+  const q = document.getElementById("ai-question").value.trim().toLowerCase();
+  if (!q) return;
+  const out = document.getElementById("ai-answer");
+  let answer = "";
+
+  if (q.includes("أعلى") && (q.includes("مطالبة") || q.includes("مطالبات") || q.includes("قيمة"))) {
+    const top = [...state.claims].sort((a,b)=>b.amount-a.amount).slice(0,5);
+    answer = top.length ? `أعلى ٥ مطالبات قيمة:<ul>${top.map(c=>`<li>${c.code} — ${escapeHtml(c.patient)} — ${escapeHtml(c.service)} — <strong>${formatMoney(c.amount)}</strong></li>`).join("")}</ul>` : "لا توجد مطالبات.";
+  } else if (q.includes("فجوات") || q.includes("ناقص") || q.includes("غير مغطاة")) {
+    const cats = new Set(state.benefits.map(b=>b.category));
+    const missing = Object.keys(CATEGORIES).filter(c => !cats.has(c));
+    answer = missing.length ? `الفئات غير المغطاة في جدول المنافع: <strong>${missing.map(c=>CATEGORIES[c]).join("، ")}</strong>` : "✓ جميع الفئات الأساسية مغطاة في الجدول.";
+  } else if (q.includes("نسبة") && q.includes("مرفوض")) {
+    const total = state.claims.length;
+    const rej = state.claims.filter(c=>c.status==="rejected").length;
+    const r = total ? Math.round((rej/total)*100) : 0;
+    answer = `نسبة المطالبات المرفوضة: <strong>${r}%</strong> (${rej} من أصل ${total})`;
+  } else if (q.includes("معلّق") || q.includes("معلق") || q.includes("مراجعة")) {
+    const review = state.claims.filter(c=>c.status==="review" || c.status==="pending");
+    answer = review.length ? `هناك <strong>${review.length}</strong> مطالبة تحتاج إجراء:<ul>${review.slice(0,10).map(c=>`<li>${c.code} — ${escapeHtml(c.patient)} — ${escapeHtml(c.service)} (${STATUS_LABELS[c.status].label})</li>`).join("")}</ul>` : "لا توجد مطالبات معلّقة.";
+  } else if (q.includes("إنفاق") || q.includes("فئة") || q.includes("توزيع")) {
+    const sums = {};
+    state.claims.forEach(c => sums[c.category] = (sums[c.category]||0) + c.amount);
+    const sorted = Object.entries(sums).sort((a,b)=>b[1]-a[1]);
+    answer = sorted.length ? `الفئات الأعلى إنفاقًا:<ul>${sorted.slice(0,5).map(([k,v])=>`<li>${CATEGORIES[k]}: <strong>${formatMoney(v)}</strong></li>`).join("")}</ul>` : "لا توجد بيانات.";
+  } else if (q.includes("ملخص") || q.includes("احصائ") || q.includes("إحصائ")) {
+    const total = state.claims.length;
+    const approved = state.claims.filter(c=>c.status==="approved").length;
+    answer = `📊 الملخص: <strong>${total}</strong> مطالبة، <strong>${approved}</strong> معتمدة، <strong>${state.benefits.length}</strong> منفعة مسجلة، نسبة الاعتماد <strong>${total ? Math.round(approved/total*100) : 0}%</strong>.`;
+  } else {
+    answer = `لم أتمكن من فهم سؤالك بدقة. جرّب أسئلة مثل:<ul>
+      <li>"ما أعلى المطالبات قيمة؟"</li>
+      <li>"ما الفجوات في جدول المنافع؟"</li>
+      <li>"كم نسبة المرفوضة؟"</li>
+      <li>"ما المطالبات المعلقة؟"</li>
+      <li>"ما الفئات الأعلى إنفاقًا؟"</li>
+    </ul>`;
+  }
+  out.innerHTML = `<div class="ai-result"><h3>💬 الإجابة</h3>${answer}</div>`;
+}
+
+/* ---------- Export ---------- */
+function exportCSV(type) {
+  let csv = "", filename = "";
+  if (type === "claims") {
+    if (!state.claims.length) { alert("لا توجد مطالبات للتصدير"); return; }
+    csv = "الرقم,المريض,البوليصة,الخدمة,الفئة,المبلغ,المغطى,الحالة,المزود,التاريخ\n";
+    csv += state.claims.map(c => [c.code, c.patient, c.policy, c.service, CATEGORIES[c.category], c.amount, c.covered, STATUS_LABELS[c.status].label, c.provider, c.date].map(x => `"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
+    filename = "claims.csv";
+  } else {
+    if (!state.benefits.length) { alert("لا توجد منافع للتصدير"); return; }
+    csv = "المنفعة,الفئة,التغطية%,الحد السنوي,التحمل,موافقة مسبقة,ملاحظات\n";
+    csv += state.benefits.map(b => [b.name, CATEGORIES[b.category], b.coverage, b.limit, b.copay, b.preauth?"نعم":"لا", b.notes||""].map(x => `"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
+    filename = "benefits.csv";
+  }
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  showToast("تم التصدير ✓");
+}
+
+function clearAll() {
+  if (!confirm("سيتم حذف جميع المنافع والمطالبات. هل أنت متأكد؟")) return;
+  state.benefits = [];
+  state.claims = [];
+  save();
+  renderBenefits(); renderClaims(); renderDashboard(); renderReports();
+  showToast("تم مسح جميع البيانات");
+}
+
+/* ---------- Helpers ---------- */
+function formatMoney(n) {
+  return (n||0).toLocaleString("ar-SA") + " ر.س";
+}
+function escapeHtml(s) {
+  return String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+}
+function showModal(html) {
+  document.getElementById("modal-content").innerHTML = html;
+  document.getElementById("modal").classList.add("active");
+}
+function closeModal() {
+  document.getElementById("modal").classList.remove("active");
+}
+document.getElementById("modal").addEventListener("click", e => {
+  if (e.target.id === "modal") closeModal();
+});
+
+function showToast(msg) {
+  const t = document.createElement("div");
+  t.textContent = msg;
+  t.style.cssText = "position:fixed;bottom:24px;right:24px;background:var(--primary-dark);color:white;padding:12px 22px;border-radius:8px;box-shadow:var(--shadow-lg);z-index:2000;animation:fadeIn 0.3s;font-weight:600;";
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+/* ---------- Init ---------- */
+renderBenefits();
+renderClaims();
+renderDashboard();
+</script>
+</body>
+</html>
