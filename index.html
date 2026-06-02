@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>منفعة AI — تحليل جدول المنافع وإدارة المطالبات التأمينية</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root {
     --primary: #0a8f5f;
@@ -407,6 +408,7 @@
       <button data-tab="benefits">📋 جدول المنافع</button>
       <button data-tab="claims">🧾 المطالبات</button>
       <button data-tab="analyzer">🤖 محلل AI</button>
+      <button data-tab="import">📤 رفع Excel</button>
       <button data-tab="reports">📈 التقارير</button>
     </nav>
   </div>
@@ -714,6 +716,30 @@
       </div>
       <div id="ai-answer"></div>
     </div>
+  </section>
+
+  <!-- Excel Import & Rejection Analyzer -->
+  <section id="import" class="section">
+    <h2>📤 رفع ملف Excel وتحليل المرفوضات</h2>
+    <p class="subtitle">ارفع ملف مطالبات (Excel / CSV) وسيقوم النظام بتحليل جميع المطالبات المرفوضة تلقائيًا</p>
+
+    <div class="card">
+      <div class="upload-area" id="upload-area" onclick="document.getElementById('excel-file').click()">
+        <div style="font-size:50px;margin-bottom:10px;">📊</div>
+        <h3 style="color:var(--primary-dark);margin-bottom:8px;">اسحب ملف Excel هنا أو اضغط للاختيار</h3>
+        <p style="color:var(--muted);font-size:13px;">الصيغ المدعومة: .xlsx, .xls, .csv</p>
+        <p style="color:var(--muted);font-size:12px;margin-top:6px;">يكتشف النظام الأعمدة تلقائيًا: المريض، الخدمة، المبلغ، الحالة، السبب، الفئة</p>
+        <input type="file" id="excel-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelFile(event)" />
+      </div>
+
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn ghost" onclick="downloadSampleExcel()">📥 تنزيل ملف نموذجي للتجربة</button>
+        <button class="btn ghost" onclick="document.getElementById('excel-file').click()">📁 اختيار ملف</button>
+      </div>
+    </div>
+
+    <div id="import-preview"></div>
+    <div id="rejection-analysis"></div>
   </section>
 
   <!-- Reports -->
@@ -1310,6 +1336,418 @@ function showToast(msg) {
   t.style.cssText = "position:fixed;bottom:24px;right:24px;background:var(--primary-dark);color:white;padding:12px 22px;border-radius:8px;box-shadow:var(--shadow-lg);z-index:2000;animation:fadeIn 0.3s;font-weight:600;";
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2500);
+}
+
+/* ============================================================
+   Excel Import + Rejection Analysis Engine
+   ============================================================ */
+
+let importedRows = [];
+let detectedColumns = {};
+
+const COLUMN_KEYWORDS = {
+  patient: ["مريض","اسم","المريض","patient","name","عميل"],
+  service: ["خدمة","الخدمة","service","إجراء","العلاج","التشخيص","procedure"],
+  amount: ["مبلغ","المبلغ","amount","قيمة","value","cost","الفاتورة"],
+  status: ["حالة","الحالة","status","نتيجة","قرار"],
+  reason: ["سبب","السبب","reason","ملاحظ","تعليل","comment"],
+  category: ["فئة","الفئة","category","نوع","قسم"],
+  date: ["تاريخ","التاريخ","date"],
+  policy: ["بوليصة","البوليصة","policy","رقم"],
+  provider: ["مزود","المزود","provider","مستشفى","مركز"]
+};
+
+const REJECTION_KEYWORDS = ["مرفوض","مرفوضة","رفض","rejected","reject","denied","غير معتمد","غير مغطى","not covered"];
+
+function detectColumn(headers, key) {
+  const kws = COLUMN_KEYWORDS[key];
+  for (let i=0;i<headers.length;i++) {
+    const h = String(headers[i]||"").trim().toLowerCase();
+    if (kws.some(k => h.includes(k.toLowerCase()))) return i;
+  }
+  return -1;
+}
+
+function handleExcelFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (!rows.length) { alert("الملف فارغ"); return; }
+      processImportedData(rows, file.name);
+    } catch (err) {
+      alert("تعذّر قراءة الملف: " + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processImportedData(rows, fileName) {
+  const headers = rows[0].map(h => String(h||"").trim());
+  const dataRows = rows.slice(1).filter(r => r.some(c => String(c||"").trim()));
+
+  detectedColumns = {};
+  Object.keys(COLUMN_KEYWORDS).forEach(k => {
+    detectedColumns[k] = detectColumn(headers, k);
+  });
+
+  importedRows = dataRows.map((r, i) => {
+    const row = { _rowNum: i + 2 };
+    Object.keys(detectedColumns).forEach(k => {
+      const idx = detectedColumns[k];
+      row[k] = idx >= 0 ? String(r[idx]||"").trim() : "";
+    });
+    row._raw = r;
+    return row;
+  });
+
+  renderImportPreview(headers, fileName);
+  analyzeRejections();
+}
+
+function renderImportPreview(headers, fileName) {
+  const detected = Object.entries(detectedColumns).filter(([k,v]) => v >= 0).map(([k,v]) => `<span class="pill">${labelFor(k)} → ${escapeHtml(headers[v])}</span>`).join(" ");
+  const missing = Object.entries(detectedColumns).filter(([k,v]) => v < 0).map(([k]) => labelFor(k));
+
+  const html = `
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:10px;">📄 معاينة الملف: ${escapeHtml(fileName)}</h3>
+      <div class="grid grid-3" style="margin-bottom:14px;">
+        <div class="stat"><div class="label">إجمالي الصفوف</div><div class="value">${importedRows.length}</div></div>
+        <div class="stat accent"><div class="label">أعمدة مكتشفة</div><div class="value">${Object.values(detectedColumns).filter(v=>v>=0).length}</div></div>
+        <div class="stat warning"><div class="label">أعمدة مفقودة</div><div class="value">${missing.length}</div></div>
+      </div>
+      <div style="margin-bottom:10px;"><strong>الأعمدة المكتشفة تلقائيًا:</strong></div>
+      <div>${detected || '<span class="badge rejected">لم يتم اكتشاف أي عمود معروف</span>'}</div>
+      ${missing.length ? `<div style="margin-top:10px;color:var(--muted);font-size:13px;">⚠ أعمدة لم تُكتشف: ${missing.join("، ")}</div>` : ""}
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn" onclick="analyzeRejections()">🔍 تحليل المرفوضات</button>
+        <button class="btn secondary" onclick="importToClaimsSystem()">⬇ استيراد إلى نظام المطالبات</button>
+        <button class="btn ghost" onclick="clearImport()">إلغاء</button>
+      </div>
+    </div>`;
+  document.getElementById("import-preview").innerHTML = html;
+}
+
+function labelFor(k) {
+  return ({patient:"المريض",service:"الخدمة",amount:"المبلغ",status:"الحالة",reason:"السبب",category:"الفئة",date:"التاريخ",policy:"البوليصة",provider:"المزود"})[k] || k;
+}
+
+function isRejected(row) {
+  const txt = (row.status + " " + row.reason).toLowerCase();
+  return REJECTION_KEYWORDS.some(k => txt.includes(k.toLowerCase()));
+}
+
+function parseAmount(v) {
+  const n = parseFloat(String(v).replace(/[^\d.-]/g,""));
+  return isNaN(n) ? 0 : n;
+}
+
+function analyzeRejections() {
+  if (!importedRows.length) {
+    document.getElementById("rejection-analysis").innerHTML = `<div class="alert warning">⚠ ارفع ملفًا أولًا لتحليل المرفوضات.</div>`;
+    return;
+  }
+  const rejected = importedRows.filter(isRejected);
+  if (!rejected.length) {
+    document.getElementById("rejection-analysis").innerHTML = `<div class="card"><div class="alert success">✓ لم يتم العثور على مطالبات مرفوضة في الملف (${importedRows.length} صف).</div></div>`;
+    return;
+  }
+
+  const totalAmount = rejected.reduce((s,r) => s + parseAmount(r.amount), 0);
+  const totalAllAmount = importedRows.reduce((s,r) => s + parseAmount(r.amount), 0);
+  const rejectionRate = (rejected.length / importedRows.length * 100).toFixed(1);
+  const lossRate = totalAllAmount ? (totalAmount / totalAllAmount * 100).toFixed(1) : 0;
+
+  // Reason categorization
+  const reasonGroups = categorizeReasons(rejected);
+  const categoryGroups = groupBy(rejected, r => r.category || "غير محدد");
+  const providerGroups = groupBy(rejected, r => r.provider || "غير محدد");
+
+  const topReasons = Object.entries(reasonGroups).sort((a,b)=>b[1].count-a[1].count).slice(0,8);
+  const topCategories = Object.entries(categoryGroups).sort((a,b)=>b[1].count-a[1].count).slice(0,6);
+  const topProviders = Object.entries(providerGroups).sort((a,b)=>b[1].count-a[1].count).slice(0,5);
+  const topAmounts = [...rejected].sort((a,b) => parseAmount(b.amount) - parseAmount(a.amount)).slice(0,10);
+
+  const recommendations = generateRecommendations(reasonGroups, rejectionRate, rejected.length);
+
+  const html = `
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">🔴 ملخص تحليل المرفوضات</h3>
+      <div class="grid grid-4">
+        <div class="stat danger"><div class="label">عدد المرفوضات</div><div class="value">${rejected.length}</div></div>
+        <div class="stat warning"><div class="label">نسبة الرفض</div><div class="value">${rejectionRate}%</div></div>
+        <div class="stat danger"><div class="label">إجمالي الخسائر</div><div class="value">${formatMoney(totalAmount)}</div></div>
+        <div class="stat warning"><div class="label">نسبة الخسارة المالية</div><div class="value">${lossRate}%</div></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3 style="color:var(--primary-dark);margin-bottom:14px;">📌 أبرز أسباب الرفض</h3>
+        ${topReasons.length ? topReasons.map(([k,v]) => `
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <strong>${escapeHtml(k)}</strong>
+              <span><strong>${v.count}</strong> مطالبة | ${formatMoney(v.amount)}</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${(v.count/rejected.length*100).toFixed(0)}%;background:linear-gradient(90deg,var(--danger),var(--warning));"></div></div>
+          </div>
+        `).join("") : '<div class="empty">لا توجد أسباب موثقة</div>'}
+      </div>
+
+      <div class="card">
+        <h3 style="color:var(--primary-dark);margin-bottom:14px;">🏥 المرفوضات حسب الفئة</h3>
+        ${topCategories.length ? topCategories.map(([k,v]) => `
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <strong>${escapeHtml(k)}</strong>
+              <span><strong>${v.count}</strong> | ${formatMoney(v.amount)}</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${(v.count/rejected.length*100).toFixed(0)}%"></div></div>
+          </div>
+        `).join("") : '<div class="empty">لا توجد بيانات فئات</div>'}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">🏢 أعلى المزودين برفض المطالبات</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>المزود</th><th>عدد المرفوضات</th><th>إجمالي القيمة</th><th>متوسط القيمة</th></tr></thead>
+          <tbody>
+            ${topProviders.map(([k,v]) => `<tr>
+              <td><strong>${escapeHtml(k)}</strong></td>
+              <td>${v.count}</td>
+              <td>${formatMoney(v.amount)}</td>
+              <td>${formatMoney(Math.round(v.amount/v.count))}</td>
+            </tr>`).join("") || '<tr><td colspan="4"><div class="empty">لا توجد بيانات</div></td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">💰 أعلى ١٠ مطالبات مرفوضة قيمةً</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>المريض</th><th>الخدمة</th><th>المبلغ</th><th>السبب</th></tr></thead>
+          <tbody>
+            ${topAmounts.map((r,i) => `<tr>
+              <td>${i+1}</td>
+              <td>${escapeHtml(r.patient || "—")}</td>
+              <td>${escapeHtml(r.service || "—")}</td>
+              <td><strong style="color:var(--danger)">${formatMoney(parseAmount(r.amount))}</strong></td>
+              <td style="font-size:12px;color:var(--muted)">${escapeHtml(r.reason || r.status || "—")}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="ai-result">
+      <h3>💡 توصيات الذكاء الاصطناعي</h3>
+      <ul>${recommendations.map(r => `<li>${r}</li>`).join("")}</ul>
+    </div>
+
+    <div class="card">
+      <h3 style="color:var(--primary-dark);margin-bottom:14px;">📋 جميع المرفوضات (${rejected.length})</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>صف</th><th>المريض</th><th>الخدمة</th><th>الفئة</th><th>المبلغ</th><th>السبب</th></tr></thead>
+          <tbody>
+            ${rejected.slice(0, 50).map(r => `<tr>
+              <td>${r._rowNum}</td>
+              <td>${escapeHtml(r.patient || "—")}</td>
+              <td>${escapeHtml(r.service || "—")}</td>
+              <td>${escapeHtml(r.category || "—")}</td>
+              <td>${formatMoney(parseAmount(r.amount))}</td>
+              <td style="font-size:12px">${escapeHtml(r.reason || r.status || "—")}</td>
+            </tr>`).join("")}
+            ${rejected.length > 50 ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);font-style:italic;">... و ${rejected.length - 50} مطالبة أخرى (استخدم زر التصدير لرؤية الجميع)</td></tr>` : ""}
+          </tbody>
+        </table>
+      </div>
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="btn" onclick="exportRejectionsCSV()">📥 تصدير المرفوضات CSV</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("rejection-analysis").innerHTML = html;
+}
+
+function categorizeReasons(rows) {
+  const groups = {};
+  const patterns = [
+    { match: ["موافقة","مسبقة","approval","authorization"], label: "عدم وجود موافقة مسبقة" },
+    { match: ["تجاوز","حد","limit","exceed","سقف"], label: "تجاوز الحد السنوي" },
+    { match: ["غير مغط","not covered","exclus","استثناء","تجميل"], label: "خدمة غير مشمولة بالتغطية" },
+    { match: ["انتظار","waiting","فترة"], label: "ضمن فترة الانتظار" },
+    { match: ["وثيقة","ناقص","مفقود","missing","document"], label: "نقص في المستندات" },
+    { match: ["انتهاء","منتهي","expired","صلاحية"], label: "انتهاء صلاحية البوليصة" },
+    { match: ["تكرار","مكرر","duplicate"], label: "مطالبة مكررة" },
+    { match: ["خطأ","error","incorrect","غير صحيح"], label: "أخطاء في البيانات" },
+    { match: ["ضرورة","طبية","medical necessity","not necessary"], label: "عدم وجود ضرورة طبية" }
+  ];
+  rows.forEach(r => {
+    const txt = ((r.reason || "") + " " + (r.status || "")).toLowerCase();
+    let matched = false;
+    for (const p of patterns) {
+      if (p.match.some(m => txt.includes(m.toLowerCase()))) {
+        if (!groups[p.label]) groups[p.label] = { count: 0, amount: 0 };
+        groups[p.label].count++;
+        groups[p.label].amount += parseAmount(r.amount);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      const key = r.reason ? (r.reason.length > 50 ? r.reason.slice(0,50)+"…" : r.reason) : "سبب غير محدد";
+      if (!groups[key]) groups[key] = { count: 0, amount: 0 };
+      groups[key].count++;
+      groups[key].amount += parseAmount(r.amount);
+    }
+  });
+  return groups;
+}
+
+function groupBy(rows, keyFn) {
+  const g = {};
+  rows.forEach(r => {
+    const k = keyFn(r);
+    if (!g[k]) g[k] = { count: 0, amount: 0 };
+    g[k].count++;
+    g[k].amount += parseAmount(r.amount);
+  });
+  return g;
+}
+
+function generateRecommendations(reasonGroups, rate, count) {
+  const recs = [];
+  const top = Object.entries(reasonGroups).sort((a,b)=>b[1].count-a[1].count)[0];
+  if (rate > 20) recs.push(`⚠ <strong>نسبة الرفض مرتفعة (${rate}%)</strong> — يُنصح بمراجعة معايير الاعتماد وتدريب فريق المطالبات.`);
+  if (top && top[0].includes("موافقة")) recs.push(`📋 السبب الأول للرفض هو <strong>عدم وجود موافقة مسبقة</strong> — فعّل نظام تحقق آلي قبل تقديم الخدمة.`);
+  if (top && top[0].includes("حد")) recs.push(`💰 كثير من الرفض بسبب <strong>تجاوز الحد السنوي</strong> — راجع كفاية حدود المنافع وأبلغ المؤمَّن عليهم.`);
+  if (top && top[0].includes("مستندات")) recs.push(`📄 رفض كثير بسبب <strong>نقص المستندات</strong> — وفر قائمة تحقق واضحة للمزودين.`);
+  if (top && top[0].includes("غير مشمول")) recs.push(`🛡 رفض كبير لخدمات <strong>غير مشمولة</strong> — راجع وضوح جدول المنافع وتوعية المؤمَّن عليهم.`);
+  if (count > 50) recs.push(`🤖 لديك <strong>${count}</strong> مطالبة مرفوضة — استخدم النظام لتتبع الأنماط شهريًا.`);
+  recs.push(`✨ توصية عامة: استخدم تبويب <strong>محلل AI</strong> لاختبار تغطية الخدمات <em>قبل</em> تقديمها لتجنب الرفض.`);
+  return recs;
+}
+
+function importToClaimsSystem() {
+  if (!importedRows.length) return;
+  if (!confirm(`سيتم استيراد ${importedRows.length} مطالبة إلى النظام. متابعة؟`)) return;
+  let added = 0;
+  importedRows.forEach((r, i) => {
+    if (!r.patient && !r.service) return;
+    const status = isRejected(r) ? "rejected" : (r.status.toLowerCase().includes("معتمد") || r.status.toLowerCase().includes("approved") ? "approved" : "review");
+    state.claims.unshift({
+      id: Date.now() + i,
+      code: "IMP-" + String(state.claims.length + 1001 + i).padStart(4,"0"),
+      patient: r.patient || "غير محدد",
+      policy: r.policy || "—",
+      service: r.service || "غير محدد",
+      category: matchCategoryFromText(r.category) || "outpatient",
+      amount: parseAmount(r.amount),
+      provider: r.provider || "—",
+      details: "",
+      covered: status === "approved" ? parseAmount(r.amount) : 0,
+      status,
+      reason: r.reason || r.status || "مستورد من Excel",
+      date: r.date || new Date().toISOString().slice(0,10)
+    });
+    added++;
+  });
+  save();
+  renderClaims();
+  renderDashboard();
+  showToast(`✓ تم استيراد ${added} مطالبة`);
+}
+
+function matchCategoryFromText(txt) {
+  if (!txt) return null;
+  const t = txt.toLowerCase();
+  for (const [key, label] of Object.entries(CATEGORIES)) {
+    if (t.includes(label) || t.includes(key)) return key;
+  }
+  return null;
+}
+
+function clearImport() {
+  importedRows = [];
+  detectedColumns = {};
+  document.getElementById("import-preview").innerHTML = "";
+  document.getElementById("rejection-analysis").innerHTML = "";
+  document.getElementById("excel-file").value = "";
+}
+
+function exportRejectionsCSV() {
+  const rejected = importedRows.filter(isRejected);
+  if (!rejected.length) return;
+  let csv = "صف,المريض,الخدمة,الفئة,المبلغ,المزود,الحالة,السبب\n";
+  csv += rejected.map(r => [r._rowNum, r.patient, r.service, r.category, parseAmount(r.amount), r.provider, r.status, r.reason].map(x => `"${String(x||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "rejections-analysis.csv"; a.click();
+  URL.revokeObjectURL(url);
+  showToast("تم تصدير المرفوضات ✓");
+}
+
+function downloadSampleExcel() {
+  const headers = ["رقم البوليصة","اسم المريض","الخدمة","الفئة","المبلغ","المزود","الحالة","السبب","التاريخ"];
+  const sample = [
+    ["POL-2026-1001","فهد العتيبي","كشف عيادة باطنة","عيادات خارجية",350,"مستشفى دله","معتمدة","",""],
+    ["POL-2026-1002","نوال القحطاني","أشعة رنين للركبة","مختبر وأشعة",2800,"مستشفى المملكة","مرفوضة","عدم وجود موافقة مسبقة","2026-05-10"],
+    ["POL-2026-1003","سلمان الحربي","عملية تجميل أنف","تنويم",18000,"عيادة الجمال","مرفوضة","خدمة غير مغطاة - تجميلية","2026-05-12"],
+    ["POL-2026-1004","ريم الزهراني","تنظيف أسنان","أسنان",300,"عيادة الابتسامة","معتمدة","","2026-05-13"],
+    ["POL-2026-1005","خالد ناصر","تحاليل دم شاملة","مختبر وأشعة",450,"مختبر البرج","معتمدة","","2026-05-14"],
+    ["POL-2026-1006","هند فهد","علاج طبيعي","عيادات خارجية",6500,"مركز التأهيل","مرفوضة","تجاوز الحد السنوي للجلسات","2026-05-15"],
+    ["POL-2026-1007","ماجد سعيد","نظارة طبية","بصريات",1800,"مغربي","مرفوضة","تجاوز الحد السنوي للبصريات","2026-05-16"],
+    ["POL-2026-1008","عائشة سالم","ولادة قيصرية","ولادة",22000,"السعودي الألماني","قيد المراجعة","","2026-05-17"],
+    ["POL-2026-1009","يوسف عبدالله","حشو سن","أسنان",550,"عيادة الأسنان","معتمدة","","2026-05-18"],
+    ["POL-2026-1010","منى الشهري","أدوية ضغط مزمنة","صيدلية",280,"صيدلية النهدي","معتمدة","","2026-05-19"],
+    ["POL-2026-1011","عبدالرحمن البقمي","عملية قلب مفتوح","تنويم",95000,"مستشفى الملك فيصل","مرفوضة","نقص في المستندات المطلوبة","2026-05-20"],
+    ["POL-2026-1012","سارة محمد","فحص نظر","بصريات",250,"مغربي","معتمدة","","2026-05-21"],
+    ["POL-2026-1013","تركي علي","استشارة جلدية","عيادات خارجية",400,"مركز الجلدية","مرفوضة","البوليصة منتهية الصلاحية","2026-05-22"],
+    ["POL-2026-1014","لينا فهد","تقويم أسنان","أسنان",8500,"عيادة التقويم","مرفوضة","خدمة غير مشمولة في الباقة","2026-05-23"],
+    ["POL-2026-1015","بدر العنزي","غسيل كلوي","تنويم",4500,"مستشفى الكلى","معتمدة","","2026-05-24"],
+    ["POL-2026-1016","غادة سعد","فحص حمل","ولادة",350,"السعودي الألماني","معتمدة","","2026-05-25"],
+    ["POL-2026-1017","عمر هاني","علاج طبيعي للظهر","عيادات خارجية",750,"مركز التأهيل","مرفوضة","مطالبة مكررة","2026-05-26"],
+    ["POL-2026-1018","نوف خالد","أشعة سينية للصدر","مختبر وأشعة",380,"مستشفى دله","معتمدة","","2026-05-27"],
+    ["POL-2026-1019","فيصل ناصر","عملية الزائدة","تنويم",16500,"مستشفى السعودي الألماني","معتمدة","","2026-05-28"],
+    ["POL-2026-1020","رهف محمد","لقاحات أطفال","عيادات خارجية",600,"مركز الأطفال","مرفوضة","ضمن فترة الانتظار للأطفال","2026-05-29"]
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...sample]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "المطالبات");
+  XLSX.writeFile(wb, "نموذج_مطالبات.xlsx");
+  showToast("تم تنزيل الملف النموذجي ✓");
+}
+
+/* Drag & Drop */
+const uploadEl = document.getElementById("upload-area");
+if (uploadEl) {
+  ["dragenter","dragover"].forEach(ev => uploadEl.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation();
+    uploadEl.classList.add("drag");
+  }));
+  ["dragleave","drop"].forEach(ev => uploadEl.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation();
+    uploadEl.classList.remove("drag");
+  }));
+  uploadEl.addEventListener("drop", e => {
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    document.getElementById("excel-file").files = e.dataTransfer.files;
+    handleExcelFile({ target: { files: [file] } });
+  });
 }
 
 /* ---------- Init ---------- */
